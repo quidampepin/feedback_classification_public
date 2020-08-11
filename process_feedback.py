@@ -12,12 +12,8 @@ import sys
 import warnings
 import pickle
 
-#Get data from AirTable - replace ids and credentials with yours - data could be imported from other sources (e.g: CSV files)
-airtable = Airtable('your_table_id', 'tab_name', api_key='your_api_key')
-record_list = airtable.get_all()
-
-#convert data to Pandas dataframe
-data = pd.DataFrame([record['fields'] for record in record_list])
+#Import data in a Pandas dataframe - sample CSV file is in repo - data could be imported from other sources (e.g: AirTable)
+data = pd.read_csv('tagged_feedback.csv')
 
 
 
@@ -25,7 +21,7 @@ data = pd.DataFrame([record['fields'] for record in record_list])
 data_en = data[data['Lang'].str.contains("EN", na=False)]
 
 #keep only relevant columns from the dataframe - adjust to your actual info
-data_en_topic = data_en[['Comment', 'Lookup_tags', 'Model function', 'Tags confirmed']]
+data_en_topic = data_en[['Comment', 'Tags', 'Model function', 'Tags confirmed']]
 
 #remove all rows thave have null content - because there's a column to indicate is tags have been confirmed, this, in effect, removes comments for which the tags haven't been confirmed by a human
 data_en_topic = data_en_topic.dropna()
@@ -33,22 +29,13 @@ data_en_topic = data_en_topic.dropna()
 #remove the Tags confirmed column (it's not needed anymore)
 data_en_topic = data_en_topic.drop(columns=['Tags confirmed'])
 
-#converts the tags to a string (instead of a list) - needed for further processing - and puts it in a new column
-data_en_topic['topics'] = [','.join(map(str, l)) for l in data_en_topic['Lookup_tags']]
-
-#remove the Lookup_tags column (it's not needed anymore)
-data_en_topic = data_en_topic.drop(columns=['Lookup_tags'])
-
 #resets the index for each row - needed for further processing
 data_en_topic = data_en_topic.reset_index(drop=True)
 
 #split dataframe for French comments - same comments as above for each line
 data_fr = data[data['Lang'].str.contains("FR", na=False)]
-data_fr_topic = data_fr[['Comment', 'Lookup_tags', 'Model function', 'Tags confirmed']]
+data_fr_topic = data_fr[['Comment', 'Tags', 'Model function', 'Tags confirmed']]
 data_fr_topic = data_fr_topic.dropna()
-data_fr_topic = data_fr_topic.drop(columns=['Tags confirmed'])
-data_fr_topic['topics'] = [','.join(map(str, l)) for l in data_fr_topic['Lookup_tags']]
-data_fr_topic = data_fr_topic.drop(columns=['Lookup_tags'])
 data_fr_topic = data_fr_topic.reset_index(drop=True)
 
 
@@ -74,7 +61,7 @@ from sklearn.preprocessing import OneHotEncoder, MultiLabelBinarizer
 cats_en = {}
 for section in sections_en:
     mlb = MultiLabelBinarizer()
-    mhv= mlb.fit_transform(sections_en[section]['topics'].apply(lambda x: set(x.split(','))))
+    mhv= mlb.fit_transform(sections_en[section]['Tags'].apply(lambda x: set(x.split(','))))
     cats_en[section] = pd.DataFrame(mhv,columns=mlb.classes_)
     cats_en[section].insert(0, 'Feedback', sections_en[section]['Comment'])
 
@@ -82,7 +69,7 @@ for section in sections_en:
 cats_fr = {}
 for section in sections_en:
     mlb = MultiLabelBinarizer()
-    mhv= mlb.fit_transform(sections_fr[section]['topics'].apply(lambda x: set(x.split(','))))
+    mhv= mlb.fit_transform(sections_fr[section]['Tags'].apply(lambda x: set(x.split(','))))
     cats_fr[section] = pd.DataFrame(mhv,columns=mlb.classes_)
     cats_fr[section].insert(0, 'Feedback', sections_fr[section]['Comment'])
 
